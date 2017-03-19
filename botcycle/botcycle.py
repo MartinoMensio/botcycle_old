@@ -1,6 +1,7 @@
 import sys
 import time
 import json
+import requests
 from pprint import pprint
 import telepot
 from telepot.namedtuple import ReplyKeyboardMarkup, KeyboardButton
@@ -38,8 +39,17 @@ def on_chat_message(msg):
                 response = "station " + msg['text'] + ":\nbikes:" + str(station.bikes) + "\nfree:" + str(station.free)
                 bot.sendMessage(chat_id, response)
             else:
-                markup = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text='Send position', request_location=True)]])
-                bot.sendMessage(chat_id, 'Where are you?', reply_markup=markup)
+                # ask for location
+                places_found = requests.get('http://nominatim.openstreetmap.org/search?format=json&q=' + msg['text']).json()
+                if len(places_found) > 0:
+                    user_positions[chat_id] = {}
+                    user_positions[chat_id]['latitude'] = float(places_found[0]['lat'])
+                    user_positions[chat_id]['longitude'] = float(places_found[0]['lon'])
+                    bot.sendMessage(chat_id, "Got your position: " + str(user_positions[chat_id]['latitude']) + ";" + str(user_positions[chat_id]['longitude']))
+
+                else:
+                    markup = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text='Send position', request_location=True)]])
+                    bot.sendMessage(chat_id, 'Where are you?', reply_markup=markup)
 
     elif content_type == 'location':
         user_positions[chat_id] = msg['location']
@@ -47,6 +57,7 @@ def on_chat_message(msg):
     else:
         bot.sendMessage(chat_id, "why did you send " + content_type + "?")
 
+# working on global variables?? SRSLY?
 def update_data():
     torino_bikeshare.update()
     torino_stations = {x.name:x for x in torino_bikeshare.stations}
